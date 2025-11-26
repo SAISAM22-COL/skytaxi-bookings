@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { MapPin, Navigation, Plane } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Location {
   lat: number;
@@ -58,7 +59,7 @@ const Index = () => {
 
   const fare = calculateFare();
 
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!pickup || !destination || !selectedTier || !fare || !distance) {
       toast.error('Please select pickup, destination, and taxi tier');
       return;
@@ -80,6 +81,29 @@ const Index = () => {
       eta: etaMinutes,
       distance
     };
+
+    // Save to database
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    const { error } = await supabase.from('bookings').insert({
+      booking_id: bookingId,
+      user_id: user?.id || null,
+      tier_name: tier.name,
+      fare: fare,
+      eta: etaMinutes,
+      distance: distance,
+      pickup_lat: pickup.lat,
+      pickup_lng: pickup.lng,
+      destination_lat: destination.lat,
+      destination_lng: destination.lng,
+      status: 'confirmed'
+    });
+
+    if (error) {
+      console.error('Error saving booking:', error);
+      toast.error('Failed to save booking');
+      return;
+    }
 
     setCurrentBooking(booking);
     setShowConfirmation(true);
